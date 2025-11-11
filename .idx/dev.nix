@@ -9,6 +9,9 @@
     pkgs.yarn
     pkgs.nodePackages.pnpm
     pkgs.bun
+    pkgs.python3
+    pkgs.gnumake
+    pkgs.gcc
   ];
   # Sets environment variables in the workspace
   env = {};
