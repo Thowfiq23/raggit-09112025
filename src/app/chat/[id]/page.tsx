@@ -9,6 +9,8 @@ interface Message {
   role: 'user' | 'ai';
   content: string;
   sources?: any[];
+  relevant_files?: string[];
+  confidence_score?: number;
 }
 
 export default function ChatPage() {
@@ -34,9 +36,9 @@ export default function ChatPage() {
           return;
         }
 
-        const repoId = parseInt(id);
-        if (isNaN(repoId)) {
-          setError('Invalid repository ID');
+        const isUuid = /^[0-9a-f-]{36}$/i.test(id);
+        if (!isUuid) {
+          setError('Invalid repository ID format');
           setRepoLoading(false);
           return;
         }
@@ -44,7 +46,7 @@ export default function ChatPage() {
         const { data, error: supabaseError } = await supabase
           .from('repositories')
           .select('repo_name, status')
-          .eq('id', repoId)
+          .eq('id', id)
           .single();
 
         if (supabaseError) {
@@ -67,7 +69,7 @@ export default function ChatPage() {
         setRepoName(data.repo_name);
         
         // Check if repository is ready for chatting
-        if (data.status !== 'completed') {
+        if (data.status.toLowerCase() !== 'completed') {
           setError(`Repository is still ${data.status}. Please wait until processing is complete.`);
         }
         
@@ -108,7 +110,7 @@ export default function ChatPage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          repoId: parseInt(id || ''),
+          repoId: id,
           query: currentQuery,
         }),
       });
@@ -124,6 +126,8 @@ export default function ChatPage() {
         role: 'ai',
         content: data.answer,
         sources: data.sources || [],
+        relevant_files: data.relevant_files || [],
+        confidence_score: data.confidence_score,
       };
 
       setMessages(prev => [...prev, aiMessage]);
@@ -235,6 +239,29 @@ export default function ChatPage() {
               >
                 <div className="whitespace-pre-wrap">{message.content}</div>
                 
+                {/* Metadata */}
+                {message.role === 'ai' && (
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    {message.confidence_score !== undefined && (
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-900 text-green-200">
+                        Confidence: {Math.round(message.confidence_score * 100)}%
+                      </span>
+                    )}
+                    {message.relevant_files && message.relevant_files.length > 0 && (
+                      <div className="w-full mt-2">
+                        <h4 className="text-xs font-medium text-gray-400 mb-1">Relevant Files:</h4>
+                        <div className="flex flex-wrap gap-2">
+                          {message.relevant_files.map((file, idx) => (
+                            <span key={idx} className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-gray-700 text-gray-300">
+                              {file}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {/* Sources */}
                 {message.role === 'ai' && message.sources && message.sources.length > 0 && (
                   <div className="mt-4 pt-4 border-t border-gray-700">

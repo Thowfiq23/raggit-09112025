@@ -5,9 +5,11 @@ import Link from 'next/link';
 import { supabase } from '../lib/supabaseClient';
 
 interface Repository {
-  id: number;
+  id: string;
   repo_name: string;
   status: string;
+  chunk_count?: number;
+  error_message?: string;
 }
 
 export default function RepoList() {
@@ -22,7 +24,7 @@ export default function RepoList() {
 
       const { data, error } = await supabase
         .from('repositories')
-        .select('id, repo_name, status')
+        .select('id, repo_name, status, chunk_count, error_message')
         .order('created_at', { ascending: false });
 
       if (error) {
@@ -44,25 +46,27 @@ export default function RepoList() {
 
   const getStatusBadge = (status: string) => {
     const statusConfig = {
-      completed: {
+      COMPLETED: {
         color: 'bg-green-100 text-green-800 border-green-200',
         text: 'Completed'
       },
-      processing: {
-        color: 'bg-yellow-100 text-yellow-800 border-yellow-200',
+      PROCESSING: {
+        color: 'bg-blue-100 text-blue-800 border-blue-200 animate-pulse',
         text: 'Processing'
       },
-      pending: {
-        color: 'bg-blue-100 text-blue-800 border-blue-200',
-        text: 'Pending'
+      PENDING: {
+        color: 'bg-yellow-100 text-yellow-800 border-yellow-200',
+        text: 'Queued'
       },
-      failed: {
+      FAILED: {
         color: 'bg-red-100 text-red-800 border-red-200',
         text: 'Failed'
       }
     };
 
-    const config = statusConfig[status as keyof typeof statusConfig] || {
+    // Handle case-insensitivity and default
+    const normalizedStatus = status?.toUpperCase() || 'PENDING';
+    const config = statusConfig[normalizedStatus as keyof typeof statusConfig] || {
       color: 'bg-gray-100 text-gray-800 border-gray-200',
       text: status
     };
@@ -164,8 +168,13 @@ export default function RepoList() {
                     </h3>
                   </div>
                   <p className="text-sm text-gray-500">
-                    Repository ID: {repo.id}
+                    {repo.chunk_count ? `${repo.chunk_count} chunks` : 'No chunks yet'}
                   </p>
+                  {repo.error_message && (
+                    <p className="text-xs text-red-500 mt-1 truncate" title={repo.error_message}>
+                      Error: {repo.error_message}
+                    </p>
+                  )}
                 </div>
                 <div className="ml-4 flex-shrink-0">
                   {getStatusBadge(repo.status)}
@@ -182,4 +191,4 @@ export default function RepoList() {
       )}
     </div>
   );
-}
+} 

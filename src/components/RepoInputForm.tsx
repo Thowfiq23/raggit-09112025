@@ -27,18 +27,31 @@ export default function RepoInputForm() {
         body: JSON.stringify({ repoUrl: repoUrl.trim() }),
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to process repository');
+      // Handle empty response (timeout case)
+      const text = await response.text();
+      let data;
+      try {
+        data = text ? JSON.parse(text) : {};
+      } catch {
+        data = {};
       }
 
-      const data = await response.json();
+      if (!response.ok) {
+        // Show the specific error message from the API
+        throw new Error(data.error || `Request failed with status ${response.status}`);
+      }
+
       console.log('Repository processing response:', data);
       
       // Clear the input on success
       setRepoUrl('');
       
+      // Trigger a page refresh to show new repo in list
+      window.location.reload();
+      
     } catch (err) {
-      setError('Failed to process repository');
+      const errorMessage = err instanceof Error ? err.message : 'Failed to process repository';
+      setError(errorMessage);
       console.error('Error processing repository:', err);
     } finally {
       setLoading(false);
